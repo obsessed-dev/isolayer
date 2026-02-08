@@ -4,17 +4,20 @@ use std::fs;
 use std::process;
 use std::thread;
 use std::time::Duration;
+mod constants;
+
+use crate::constants::{TEMP_FILE, TMP_DIR, VOLT_FILE};
 
 fn main() -> Result<()> {
     let mut rng = rand::rng();
 
-    let path = "/tmp/isolayer".to_string();
+    let path = TMP_DIR;
 
     fs::create_dir_all(&path).context("Failed to initialize the mock data directory in /tmp")?;
 
     // Catch OS interrupt signal on program finish
     ctrlc::set_handler(move || {
-        println!("\n[Isolayer Data Simulator]: Shutting down. Cleaning up temp directory...");
+        println!("\n[Isolayer Data Simulator]: Shutting down. Cleaning up /tmp directory...");
         let _ = fs::remove_dir_all(&path);
         process::exit(0);
     })
@@ -28,10 +31,8 @@ fn main() -> Result<()> {
         let volt = rng.random_range(11.5..14.0);
 
         // writing to our 'mock registers' (files)
-        fs::write("/tmp/isolayer/temp", temp.to_string())
-            .context("Failed to write data to temp file")?;
-        fs::write("/tmp/isolayer/volt", volt.to_string())
-            .context("Failed to write data to volt file")?;
+        fs::write(TEMP_FILE, temp.to_string()).context("Failed to write data to temp file")?;
+        fs::write(VOLT_FILE, volt.to_string()).context("Failed to write data to volt file")?;
 
         println!("Updated: {:.2}\u{00B0}F | {:.2}V", temp, volt);
 
