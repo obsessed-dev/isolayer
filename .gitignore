@@ -1,0 +1,11 @@
+# Build artifacts
+target/
+
+# IDE & OS noise
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Environment/Secrets (Phase 3 safety)
+.env
