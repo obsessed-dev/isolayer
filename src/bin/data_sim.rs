@@ -36,7 +36,7 @@ fn main() -> Result<()> {
         println!("Updated: {:.2}\u{00B0}F | {:.2}V", temp, volt);
 
         // The daemon will check every 60 seconds, but we'll post every 15 seconds to test this robustly.
-        thread::sleep(Duration::from_secs(15));
+        thread::sleep(Duration::from_secs(1));
     }
     Ok(())
 }
