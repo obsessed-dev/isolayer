@@ -1,23 +1,23 @@
 use crate::constants::STATUS_FILE;
-use crate::decision_engine::SystemState;
+use crate::decision_engine::State;
 use tokio::{fs, io};
 
-pub async fn apply_state(state: SystemState, temp: f32, volt: f32) {
+pub async fn apply_state(state: State, temp: f32, volt: f32) {
     match state {
-        SystemState::Active => {
+        State::Active => {
             println!(
                 "[Actuator] State: ACTIVE | Reason: {:.2}\u{00B0}F < 35\u{00B0}F",
                 temp
             );
             let _ = update_status_file("ACTIVE").await;
         }
-        SystemState::Idle => {
-            println!("[Actuator] State: IDLE | Reason: Thermal envelope maintained");
-            let _ = update_status_file("IDLE").await;
+        State::Standby => {
+            println!("[Actuator] State: STANDBY | Reason: Thermal envelope maintained");
+            let _ = update_status_file("STANDBY").await;
         }
-        SystemState::SafetyMode => {
+        State::Safety => {
             eprintln!(
-                "[Actuator] State: SAFETY Reason: {:.2}V is below 12.2V threshold",
+                "[Actuator] State: SAFETY Reason: {:.2}V is below 12.5V threshold",
                 volt
             );
             let _ = update_status_file("SAFETY").await;

@@ -1,4 +1,4 @@
-use anyhow::{Context, Ok, Result};
+use anyhow::{Context, Result};
 use rand::Rng;
 use std::fs;
 use std::process;
@@ -11,14 +11,12 @@ use crate::constants::{TEMP_FILE, TMP_DIR, VOLT_FILE};
 fn main() -> Result<()> {
     let mut rng = rand::rng();
 
-    let path = TMP_DIR;
-
-    fs::create_dir_all(&path).context("Failed to initialize the mock data directory in /tmp")?;
+    fs::create_dir_all(TMP_DIR).context("Failed to initialize the mock data directory in /tmp")?;
 
     // Catch OS interrupt signal on program finish
     ctrlc::set_handler(move || {
         println!("\n[Isolayer Data Simulator]: Shutting down. Cleaning up /tmp directory...");
-        let _ = fs::remove_dir_all(&path);
+        let _ = fs::remove_dir_all(TMP_DIR);
         process::exit(0);
     })
     .context("Failed to remove the mock data directory in /tmp")?;
@@ -39,5 +37,4 @@ fn main() -> Result<()> {
         // The daemon will check every 60 seconds, but we'll post every 15 seconds to test this robustly.
         thread::sleep(Duration::from_secs(1));
     }
-    Ok(())
 }

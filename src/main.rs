@@ -11,22 +11,35 @@ use tokio::time::{interval, Duration};
 async fn main() {
     println!("[Isolayer] Starting up...");
 
+    let mut engine = decision_engine::DecisionEngine::new();
+    let mut last_state: Option<decision_engine::State> = None;
+
     let mut heartbeat = interval(Duration::from_secs(60));
 
+    println!("[Isolayer] Watching for events...");
+
     loop {
-        println!("[Isolayer] Watching for events...");
         heartbeat.tick().await;
 
-        let temp_reading = weather_provider::get_ambient_temp().await;
-        let volt_reading = power_regulator::get_voltage().await;
+        let (temp_res, volt_res) = tokio::join!(
+            weather_provider::get_ambient_temp(),
+            power_regulator::get_voltage()
+        );
 
-        if let (Ok(t), Ok(v)) = (temp_reading, volt_reading) {
-            println!("Data aquired: {:.2}\u{00B0}F | {:.2}V", t, v);
+        let current_temp = temp_res.unwrap_or_else(|_| {
+            eprintln!("Weather API failed, using fail-safe temp...");
+            30.0
+        });
 
-            let state = decision_engine::evaluation_policy(t, v);
-            actuator::apply_state(state, t, v).await;
-        } else {
-            eprintln!("Warning: Failed to aquire full data stream. Retrying...");
+        match volt_res {
+            Ok(v) => {
+                let current_state = engine.evaluation_policy(current_temp, v);
+                if Some(current_state) != last_state {
+                    actuator::apply_state(current_state, current_temp, v).await;
+                    last_state = Some(current_state);
+                }
+            }
+            Err(e) => eprintln!("CRITICAL: Could not read voltage: {}. Skipping cycle...", e),
         }
     }
 }
