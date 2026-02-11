@@ -6,8 +6,8 @@ pub async fn apply_state(state: State, temp: f32, volt: f32) {
     match state {
         State::Active => {
             println!(
-                "[Actuator] State: ACTIVE | Reason: {:.2}\u{00B0}F < 35\u{00B0}F",
-                temp
+                "[Actuator] State: ACTIVE | Reason: [{:.2}\u{00B0}F | {:.2}V]",
+                temp, volt
             );
             let _ = update_status_file("ACTIVE").await;
         }

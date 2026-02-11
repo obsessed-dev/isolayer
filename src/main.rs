@@ -1,45 +1,45 @@
 mod actuator;
 mod constants;
 mod decision_engine;
+mod messages;
 mod power_regulator;
 mod weather_provider;
 
-use tokio::main;
-use tokio::time::{interval, Duration};
+use crate::decision_engine::{DecisionEngine, State};
+use crate::messages::IsolayerEvent;
+
+use tokio::{main, spawn, sync::mpsc};
 
 #[main]
 async fn main() {
-    println!("[Isolayer] Starting up...");
+    let (tx, mut rx) = mpsc::channel::<IsolayerEvent>(32);
 
-    let mut engine = decision_engine::DecisionEngine::new();
-    let mut last_state: Option<decision_engine::State> = None;
+    let mut engine = DecisionEngine::new();
+    let mut current_temp = 30.0;
+    let mut current_volt = 13.0;
 
-    let mut heartbeat = interval(Duration::from_secs(60));
+    spawn(weather_provider::run(tx.clone()));
+    spawn(power_regulator::run(tx.clone()));
 
-    println!("[Isolayer] Watching for events...");
+    println!("[Isolayer] Event Bus Active...");
 
-    loop {
-        heartbeat.tick().await;
-
-        let (temp_res, volt_res) = tokio::join!(
-            weather_provider::get_ambient_temp(),
-            power_regulator::get_voltage()
-        );
-
-        let current_temp = temp_res.unwrap_or_else(|_| {
-            eprintln!("Weather API failed, using fail-safe temp...");
-            30.0
-        });
-
-        match volt_res {
-            Ok(v) => {
-                let current_state = engine.evaluation_policy(current_temp, v);
-                if Some(current_state) != last_state {
-                    actuator::apply_state(current_state, current_temp, v).await;
-                    last_state = Some(current_state);
+    while let Some(event) = rx.recv().await {
+        match event {
+            IsolayerEvent::TempUpdate(t) => {
+                current_temp = t;
+                if let Some(transition) = engine.evaluation_policy(current_temp, current_volt) {
+                    let _ = tx.send(transition).await;
                 }
             }
-            Err(e) => eprintln!("CRITICAL: Could not read voltage: {}. Skipping cycle...", e),
+            IsolayerEvent::VoltUpdate(v) => {
+                current_volt = v;
+                if let Some(transition) = engine.evaluation_policy(current_temp, current_volt) {
+                    let _ = tx.send(transition).await;
+                }
+            }
+            IsolayerEvent::StateTransition { state, temp, volt } => {
+                actuator::apply_state(state, temp, volt).await;
+            }
         }
     }
 }

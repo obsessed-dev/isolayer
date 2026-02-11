@@ -2,6 +2,8 @@
 // We use enums to represent these states because they are typesafe --
 // It's impossible for the system to be in a state that doesn't exist.
 
+use crate::messages::IsolayerEvent;
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum State {
     Active,  // Heater is ON
@@ -20,27 +22,33 @@ impl DecisionEngine {
         }
     }
 
-    pub fn evaluation_policy(&mut self, temp: f32, volt: f32) -> State {
-        // If voltage is too low, go to SAFETY regardless of temp
+    pub fn evaluation_policy(&mut self, temp: f32, volt: f32) -> Option<IsolayerEvent> {
+        let old_state = self.current_state;
+
         if volt < 12.5 {
             self.current_state = State::Safety;
-            return self.current_state;
-        }
-
-        match self.current_state {
-            State::Active => {
-                if temp >= 38.0 {
-                    self.current_state = State::Standby;
-                    return self.current_state;
+        } else {
+            match self.current_state {
+                State::Active => {
+                    if temp >= 38.0 {
+                        self.current_state = State::Standby;
+                    }
                 }
-            }
-            State::Standby | State::Safety => {
-                if temp < 35.0 {
-                    self.current_state = State::Active;
-                    return self.current_state;
+                State::Standby | State::Safety => {
+                    if temp < 35.0 {
+                        self.current_state = State::Active;
+                    }
                 }
             }
         }
-        self.current_state
+        if self.current_state != old_state {
+            Some(IsolayerEvent::StateTransition {
+                state: self.current_state,
+                temp,
+                volt,
+            })
+        } else {
+            None
+        }
     }
 }
